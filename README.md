@@ -10,7 +10,7 @@ On PlayStation 4 systems, developers were able to patch the running kernel to fo
 
 GMET (Guest Mode Execute) is an AMD technology used by its hypervisor to specifically control which pages can execute at the guest level. When it is enabled and properly configured, the guest cannot request executable pages or execute code outside the allowed area. 
 
-The PlayStation 5 lacks this configuration until firmware `6.50`. kldload works by requesting such pages, writing code into them using the kernel read/write primitives, and executing it as a real kthread, thus allowing real kernel-level code execution on the device.
+The PlayStation 5 lacks this configuration until firmware `5.50`. kldload works by requesting such pages, writing code into them using the kernel read/write primitives, and executing it as a real kthread, thus allowing real kernel-level code execution on the device.
 
 ## Supported Firmware
 
