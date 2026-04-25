@@ -27,7 +27,7 @@ uint64_t page_vtophys(uint64_t dmap_base, uint64_t cr3, uint64_t va)
         }
 
         if (level == 3)
-            return (entry & KPTE_ADDR_MASK) | (va & 0xFFF);
+            return (entry & KPTE_ADDR_MASK) | (va & KPTE_PAGE_MASK);
 
         table_phys = entry & KPTE_ADDR_MASK;
     }
@@ -79,10 +79,10 @@ static int page_clear_nx(uint64_t dmap_base, uint64_t kernel_cr3, uint64_t va)
 int page_mark_exec(uint64_t dmap_base, uint64_t kernel_cr3,
     uint64_t kva, size_t size)
 {
-    uint64_t start = kva & ~0x3FFFULL;
-    uint64_t end = (kva + size + 0x3FFF) & ~0x3FFFULL;
+    uint64_t start = kva & ~KPTE_PAGE_MASK;
+    uint64_t end = (kva + size + KPTE_PAGE_MASK) & ~KPTE_PAGE_MASK;
 
-    for (uint64_t page = start; page < end; page += 0x4000) 
+    for (uint64_t page = start; page < end; page += KPTE_PAGE_SIZE) 
     {
         if (page_clear_nx(dmap_base, kernel_cr3, page))
             return -1;

@@ -9,6 +9,8 @@
 #define KPTE_PS         (1ULL << 7)
 #define KPTE_NX         (1ULL << 63)
 #define KPTE_ADDR_MASK  0x000FFFFFFFFFF000ULL
+#define KPTE_PAGE_SIZE  0x1000ULL
+#define KPTE_PAGE_MASK  (KPTE_PAGE_SIZE - 1)
 
 typedef struct __flat_pmap
 {
