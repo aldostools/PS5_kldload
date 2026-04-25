@@ -5,6 +5,7 @@
 #include "../include/page.h"
 
 #include <stdio.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <unistd.h>
@@ -13,8 +14,10 @@
 
 #define DEBUG 0
 #define PORT 9022
+#define SELF_NAME "kldload.elf"
 #define KTHREAD_NAME "my_kthread\x00"
 #define PAGE_SIZE 0x4000
+#define COPYIN_CHUNK_SIZE 0x1000
 #define ROUND_PG(x) (((x) + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1))
 
 typedef struct __kproc_args
@@ -39,6 +42,11 @@ void _kldload(int fd, void* data, ssize_t data_size)
 {
     klog_printf("kldload: received %zd bytes\n", data_size);
 
+    if (!data_size)
+    {
+        klog_puts("kldload: no data received!");
+        return;
+    }
     //
     // Allocate kernel pages for code, name, and args
     //
@@ -77,7 +85,23 @@ void _kldload(int fd, void* data, ssize_t data_size)
     // Write code, name, and args into kernel memory
     //
     klog_puts("kldload: writing payload to kernel...");
-    kernel_copyin(data, exec_code, data_size);
+
+    //
+    // There's a bug on kernel_copyin with larger data, so we copy in 0x1000 chunks
+    //
+    uint8_t *src = data;
+    size_t remaining = (size_t)data_size;
+    uint64_t dst = exec_code;
+    while (remaining != 0)
+    {
+        size_t chunk = remaining > COPYIN_CHUNK_SIZE ? COPYIN_CHUNK_SIZE : remaining;
+
+        kernel_copyin(src, dst, chunk);
+        src += chunk;
+        dst += chunk;
+        remaining -= chunk;
+    }
+
     kernel_copyin(KTHREAD_NAME, kproc_name, sizeof(KTHREAD_NAME));
     kernel_copyin(&args, kthread_args, sizeof(args));
 
@@ -134,13 +158,16 @@ int main(int argc, char const *argv[])
     klog_printf("Running on firmware %#x\n", fw_version);
 
     // kill previous instance if running
-    struct proc* existing = find_proc_by_name("kldload.elf");
+    struct proc* existing = find_proc_by_name(SELF_NAME);
+    
     if (existing && existing->pid != getpid())
     {
         klog_printf("kldload: killing previous instance (pid %d)\n", existing->pid);
         kill(existing->pid, SIGKILL);
         free(existing);
     }
+
+    syscall(SYS_thr_set_name, -1, SELF_NAME);
 
     // init kernel primitives
     if (kprim_init(&g_kp, fw_version))
