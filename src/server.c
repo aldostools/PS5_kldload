@@ -27,7 +27,6 @@ int start_server(int port, void(*callback)(int fd, void* data, ssize_t data_size
 
     int optval = 1;
     setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-    setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
@@ -36,6 +35,7 @@ int start_server(int port, void(*callback)(int fd, void* data, ssize_t data_size
     if (bind(sock_fd, (struct sockaddr*) &addr, sizeof(addr)) < 0)
     {
         klog_perror("bind failed");
+        close(sock_fd);
         return -1;
     }
     // puts("bind ok");
@@ -43,6 +43,7 @@ int start_server(int port, void(*callback)(int fd, void* data, ssize_t data_size
     if (listen(sock_fd, 1) < 0)
     {
         klog_perror("listen failed");
+        close(sock_fd);
         return -1;
     }
     // puts("listen ok");
@@ -55,10 +56,11 @@ int start_server(int port, void(*callback)(int fd, void* data, ssize_t data_size
 
         if (conn < 0)
         {
-            klog_puts("kldload server: Accept failed!");
+            klog_puts("kldload server: Accept failed! restarting server");
             status = false;
-            continue;
-            // break;
+            close(sock_fd);
+            return start_server(port, callback);
+            // continue;
         }
 
         //
